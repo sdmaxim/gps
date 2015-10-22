@@ -20,24 +20,37 @@ middle = (function () {
 	};
 
    //Нахождение угла возле точки x2, y2
-   var angle = function (p1, p2, p3) {
+   var angle = function (p1, p2, p3, dt, lastAng) {
       var x1 = p1.x, y1 = p1.y,
           x2 = p2.x, y2 = p2.y,
-          x3 = p3.x, y3 = p3.y;
-
-          var aSQ = Math.pow((x2-x1),2) + Math.pow((y2-y1),2),
+          x3 = p3.x, y3 = p3.y,
+          a,b,c, ang, res, f;
+          if (!dt || dt < 0) dt = 1;
+          var 
+          aSQ = Math.pow((x2-x1),2) + Math.pow((y2-y1),2),
           bSQ = Math.pow((x3-x2),2) + Math.pow((y3-y2),2),
           cSQ = Math.pow((x3-x1),2) + Math.pow((y3-y1),2),
-          aSQRT = Math.sqrt(aSQ),
-          bSQRT = Math.sqrt(bSQ),
-          res = 1.0;
-          res = Math.acos((aSQ + bSQ - cSQ)/(2*aSQRT*bSQRT))*180/Math.PI;
+          a = Math.sqrt(aSQ),
+          b = Math.sqrt(bSQ),
+          c = Math.sqrt(cSQ),
+          ang = Math.acos((aSQ + bSQ - cSQ)/(2*a*b))*180/Math.PI;
+          a = a*100;
+          b = b*100;
+          c = c*100;
+          //if (res > 180) res = 0;
+          ang = 180 - ang;
+          f = 1000*(a+b)/dt;
+          //ang = Math.abs(lastAng - ang)/(f+1);
+          res = f*ang;
+          console.log(ang.toFixed(2) + " " + f.toFixed(2) + " " + res.toFixed(2) + " " + dt);
+          
       return res;
    }
 
    //Очистка трекинга
    var clear = function () {
-      var i, first = 0, second = 1, theard = 2, p1, p2, p3, ang;
+      var i, first = 0, second = 1, theard = 2, p1, p2, p3, ang = 0,
+      dt;// dt - дельта t
       for (i = 0; i < db.data.x.length-2; i++) {
 
          p1 = {
@@ -52,17 +65,16 @@ middle = (function () {
             x : db.data.x[theard],
             y : db.data.y[theard]
          };
-
-         ang = Math.abs(180-angle(p1, p2, p3));
+         dt = theard-first;
+         ang = angle(p1, p2, p3, dt, ang);
          if (ang > configMap.maxAngle) {
-            first = second;
+            first = theard-1;
             second = theard;
-            drawPoint(p2.x, p2.y, 1);
+            drawPoint(p3.x, p3.y, 1);
          } else {
             second = Math.ceil((first + theard + 1)/2);
             drawPoint(p3.x, p3.y, 2);
          }
-         
          theard++;
       }
    }
