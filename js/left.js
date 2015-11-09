@@ -7,7 +7,8 @@ left = (function () {
 			+ '<div class="left-management"></div>',
 		setSizeForm : String()
 			+ '<form>'
-				+ 'Угол<input type="text" name="maxAngle">'
+			+ 'Угол<input type="text" name="maxAngle" value="15">'
+			+ 'Мастаб<input type="text" name="zoom" value="10">'
 			+ '</form>'
 	},
 	stateMap = {
@@ -16,7 +17,8 @@ left = (function () {
 	jqueryMap = {
 		$setSizeForm : {},
 		$setSize : {
-			maxAngle : {}
+			maxAngle : {},
+			zoom : {}
 		},
 		$menu    : {}
 	},
@@ -36,7 +38,8 @@ left = (function () {
 
 		htmlButton.click(function () {
 			var msg_text = {
-				maxAngle : jqueryMap.$setSize.maxAngle.val()
+				maxAngle : jqueryMap.$setSize.maxAngle.val(),
+				zoom : jqueryMap.$setSize.zoom.val()
 			}
 			$.gevent.publish(
 				'left-menu',
@@ -66,6 +69,7 @@ left = (function () {
 		jqueryMap.$menu = $container.find('.left-management');
 		jqueryMap.$setSizeForm.append( configMap.setSizeForm );
 		jqueryMap.$setSize.maxAngle = $container.find('input[name=maxAngle]');
+		jqueryMap.$setSize.zoom = $container.find('input[name=zoom]');
 	}
 
 	//Точка входа модуля

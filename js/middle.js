@@ -4,15 +4,17 @@ middle = (function () {
       main_html : String()
          + '<div class="header"></div>'
          + '<div class="field">'
-         + '<canvas class="canvas" id="gps" width="800" height="900"></canvas></div>',
+         + '<canvas class="canvas" id="gps" width="800" height="1100"></canvas></div>',
       smallBoxSize : 25,
-      maxAngle : 0
+      maxAngle : 0,
+      zoom : 0
    },
    field = new Array(),
    lines = new Array(),
    stateMap = {
 		$container : {},
-      canvas : {}
+      canvas : {},
+      ctx : {}
 	},
 	jqueryMap = {
 		$field : {},
@@ -20,84 +22,124 @@ middle = (function () {
 	};
 
    //Нахождение угла возле точки x2, y2
-   var angle = function (p1, p2, p3, dt, lastAng) {
+   var angle = function (p1, p2, p3) {
       var x1 = p1.x, y1 = p1.y,
           x2 = p2.x, y2 = p2.y,
           x3 = p3.x, y3 = p3.y,
-          a,b,c, ang, res, f;
-          if (!dt || dt < 0) dt = 1;
-          var 
+          a,b,c, aSQ, bSQ, cSQ, ang;
           aSQ = Math.pow((x2-x1),2) + Math.pow((y2-y1),2),
           bSQ = Math.pow((x3-x2),2) + Math.pow((y3-y2),2),
           cSQ = Math.pow((x3-x1),2) + Math.pow((y3-y1),2),
           a = Math.sqrt(aSQ),
           b = Math.sqrt(bSQ),
           c = Math.sqrt(cSQ),
-          ang = Math.acos((aSQ + bSQ - cSQ)/(2*a*b))*180/Math.PI;
-          a = a*100;
-          b = b*100;
-          c = c*100;
-          //if (res > 180) res = 0;
-          ang = 180 - ang;
-          f = 1000*(a+b)/dt;
-          //ang = Math.abs(lastAng - ang)/(f+1);
-          res = f*ang;
-          console.log(ang.toFixed(2) + " " + f.toFixed(2) + " " + res.toFixed(2) + " " + dt);
-          
-      return res;
+          ang = 180-Math.acos((aSQ + bSQ - cSQ)/(2*a*b))*180/Math.PI;
+          if (!ang) ang = 0;
+
+      return {
+         ang : ang,
+         a : a,
+         b : b
+      }
+   }
+
+   var kosoe = function (p1, p2, p3) {
+      var x1, y1, x2, y2;
+         x1 = p2.x-p1.x,
+         y1 = p2.y-p1.y,
+         x2 = p3.x-p2.x,
+         y2 = p3.y-p2.y;
+      return (x1*y2 - x2*y1);//*10000;
+   }
+
+   var opuklost = function (p1, p2, p3, p4) {
+      var kos1, kos2, kos3, kos4, vypuk;
+      kos1 = kosoe(p1,p2,p3);
+      kos2 = kosoe(p2,p3,p4);
+      kos3 = kosoe(p3,p4,p1);
+      kos4 = kosoe(p4,p1,p2);
+      vypuk = ((kos1 > 0)&(kos2 > 0)&(kos3 > 0)&(kos4 > 0) || 
+               (kos1 < 0)&(kos2 < 0)&(kos3 < 0)&(kos4 < 0));
+      return vypuk;
    }
 
    //Очистка трекинга
    var clear = function () {
-      var i, first = 0, second = 1, theard = 2, p1, p2, p3, ang = 0,
-      dt;// dt - дельта t
-      for (i = 0; i < db.data.x.length-2; i++) {
+      var i, first, second, theard, forth = 2, p, alf, alf3, s, 
+      dt = 1;// dt - дельта t
 
-         p1 = {
+      clearField();
+
+      for (i = 0; i < db.data.x.length-2; i++) {
+         forth++;
+         theard = forth - 1;
+         second = theard - 1;
+         first = second - 1;
+
+         p = [{
             x : db.data.x[first],
             y : db.data.y[first]
-         };
-         p2 = {
+         },{
             x : db.data.x[second],
             y : db.data.y[second]
-         };
-         p3 = {
+         },{
             x : db.data.x[theard],
             y : db.data.y[theard]
-         };
-         dt = theard-first;
-         ang = angle(p1, p2, p3, dt, ang);
-         if (ang > configMap.maxAngle) {
-            first = theard-1;
-            second = theard;
-            drawPoint(p3.x, p3.y, 1);
-         } else {
-            second = Math.ceil((first + theard + 1)/2);
-            drawPoint(p3.x, p3.y, 2);
+         },{
+            x : db.data.x[forth],
+            y : db.data.y[forth]
+         }];
+
+         alf3 = angle(p[1], p[2], p[3]);
+         //Просуммировать расстояние и поделить на dt
+
+         if (i == 0) {
+            alf = angle(p[0], p[1], p[2]).ang;
+            s = 0;
          }
-         theard++;
+         if (opuklost(p[0], p[1], p[2], p[3])) {
+            alf += alf3.ang;
+         } else {
+            alf -= alf3.ang;
+         }
+         s += alf3.a*10000;
+
+         if (Math.abs(alf) > 360) {
+            if (alf > 0) alf -= 360;
+            if (alf < 0) alf += 360;
+         }
+
+         if ((Math.abs(alf) > configMap.maxAngle) && (s > configMap.zoom)) {
+            drawPoint(p[2].x, p[2].y, 1);
+            alf = angle(p[0], p[1], p[2]).ang;
+            s = 0;
+            dt = 1;
+         } else {
+            drawPoint(p[2].x, p[2].y, 2);
+            dt += 1;
+         }
       }
    }
 
    //Рисование точек
    var drawPoint = function(x, y, type) {
       var size;
-      x = Math.ceil((x-50.512)*20000)+400;
+      //x = Math.ceil((x-50.512)*20000)+400;
+      //y = Math.ceil((y-30.629)*20000)+850;
+      x = Math.ceil((x-50.512)*20000)+200;
       y = Math.ceil((y-30.629)*20000)+850;
-
-        var ctx = stateMap.canvas.getContext("2d");
+        
          switch (type) {
-            case 1: ctx.fillStyle = "rgb(200,0,0)"; size = 5; break;
-            case 2: ctx.fillStyle = "rgb(0,0,200)"; size = 2; break;
+            case 1: stateMap.ctx.fillStyle = "rgb(200,0,0)"; size = 4; break;
+            case 2: stateMap.ctx.fillStyle = "rgb(0,0,200)"; size = 2; break;
          }
-        ctx.fillRect (x, y, size, size);
+        stateMap.ctx.fillRect (x, y, size, size);
 
    }
 
    //Очистка всего поля
    var clearField = function () {
-      var ctx = stateMap.canvas.getContext("2d");
-      ctx.clearRect(0, 0, 800, 900); // Очистка всего холста 
+      stateMap.ctx.clearRect(0, 0, 800, 1100); // Очистка всего холста 
    }
 
    //Зададим поле
@@ -110,6 +152,7 @@ middle = (function () {
    //Задание конфигурации
    var setConfigMap = function (options) {
       configMap.maxAngle = parseInt(options.maxAngle, 10);
+      configMap.zoom = parseInt(options.zoom, 10);
    }
 
    //Инит модуля
@@ -117,6 +160,7 @@ middle = (function () {
       $container.append( configMap.main_html );
       stateMap.$container = $container;
       stateMap.canvas = document.getElementById("gps");
+      stateMap.ctx = stateMap.canvas.getContext("2d");
       setJqueryMap();
 
    }
